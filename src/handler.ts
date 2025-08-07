@@ -659,6 +659,7 @@ export class LoadBalancer extends DurableObject {
 
 			const invalidKeys = checkResults.filter((result) => !result.valid).map((result) => result.key);
 			if (invalidKeys.length > 0) {
+				console.log('InvalidKeys: ', JSON.stringify(invalidKeys));
 				const placeholders = invalidKeys.map(() => '?').join(', ');
 				const statement = `DELETE FROM api_keys WHERE api_key IN (${placeholders})`;
 				this.ctx.storage.sql.exec(statement, ...invalidKeys);
@@ -680,7 +681,6 @@ export class LoadBalancer extends DurableObject {
 	async getAllApiKeys(): Promise<Response> {
 		try {
 			const results = await this.ctx.storage.sql.exec('SELECT * FROM api_keys').raw<any>();
-			console.log('res: ', results);
 			const keys = Array.from(results);
 			return new Response(JSON.stringify({ keys }), {
 				headers: { 'Content-Type': 'application/json' },

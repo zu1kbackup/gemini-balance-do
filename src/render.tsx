@@ -47,15 +47,11 @@ export const Render = () => {
 										<thead>
 											<tr class="border-b">
 												<th class="p-2">API 密钥</th>
-												<th class="p-2">状态</th>
 											</tr>
 										</thead>
 										<tbody></tbody>
 									</table>
 								</div>
-								<button id="check-keys-btn" class="mt-4 w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition">
-									检查所有密钥 (并移除无效密钥)
-								</button>
 							</div>
 						</div>
 					</div>
@@ -67,30 +63,28 @@ export const Render = () => {
 				    document.addEventListener('DOMContentLoaded', () => {
 				      const addKeysForm = document.getElementById('add-keys-form');
 				      const apiKeysTextarea = document.getElementById('api-keys');
-				      const checkKeysBtn = document.getElementById('check-keys-btn');
 				      const refreshKeysBtn = document.getElementById('refresh-keys-btn');
 				      const keysTableBody = document.querySelector('#keys-table tbody');
 
 				      const fetchAndRenderKeys = async () => {
-				        keysTableBody.innerHTML = '<tr><td colspan="2" class="p-2 text-center">加载中...</td></tr>';
+				        keysTableBody.innerHTML = '<tr><td colspan="1" class="p-2 text-center">加载中...</td></tr>';
 				        try {
 				          const response = await fetch('/api/keys');
 				          const { keys } = await response.json();
 				          keysTableBody.innerHTML = '';
 				          if (keys.length === 0) {
-				            keysTableBody.innerHTML = '<tr><td colspan="2" class="p-2 text-center">暂无密钥</td></tr>';
+				            keysTableBody.innerHTML = '<tr><td colspan="1" class="p-2 text-center">暂无密钥</td></tr>';
 				          } else {
 				            keys.forEach(key => {
 				              const row = document.createElement('tr');
 				              row.innerHTML = \`
 				                <td class="p-2 font-mono">\${key}</td>
-				                <td class="p-2">未知</td>
 				              \`;
 				              keysTableBody.appendChild(row);
 				            });
 				          }
 				        } catch (error) {
-				          keysTableBody.innerHTML = '<tr><td colspan="2" class="p-2 text-center text-red-500">加载失败</td></tr>';
+				          keysTableBody.innerHTML = '<tr><td colspan="1" class="p-2 text-center text-red-500">加载失败</td></tr>';
 				          console.error('Failed to fetch keys:', error);
 				        }
 				      };
@@ -122,42 +116,6 @@ export const Render = () => {
 				        }
 				      });
 
-				      checkKeysBtn.addEventListener('click', async () => {
-				        const rows = keysTableBody.querySelectorAll('tr');
-				        rows.forEach(row => {
-				          const statusCell = row.querySelector('td:last-child');
-				          if (statusCell) statusCell.textContent = '检查中...';
-				        });
-
-				        try {
-				          const response = await fetch('/api/keys/check');
-				          const results = await response.json();
-				          
-				          const keyStatusMap = new Map(results.map(r => [r.key, r.valid]));
-
-				          rows.forEach(row => {
-				            const keyCell = row.querySelector('td:first-child');
-				            const statusCell = row.querySelector('td:last-child');
-				            if (keyCell && statusCell) {
-				              const key = keyCell.textContent;
-				              const isValid = keyStatusMap.get(key);
-				              if (isValid) {
-				                statusCell.textContent = '有效';
-				                statusCell.className = 'p-2 text-green-600';
-				              } else {
-				                statusCell.textContent = '无效 (将被移除)';
-				                statusCell.className = 'p-2 text-red-600';
-				              }
-				            }
-				          });
-				          
-				          alert('检查完成，无效密钥将被自动移除。请刷新列表查看最新结果。');
-
-				        } catch (error) {
-				          alert('检查密钥失败。');
-				          console.error('Failed to check keys:', error);
-				        }
-				      });
 
 				      refreshKeysBtn.addEventListener('click', fetchAndRenderKeys);
 
