@@ -65,6 +65,9 @@ export class LoadBalancer extends DurableObject {
 		if (pathname === '/api/keys' && request.method === 'GET') {
 			return this.getAllApiKeys();
 		}
+		if (pathname === '/api/keys' && request.method === 'DELETE') {
+			return this.handleDeleteApiKeys(request);
+		}
 		if (pathname === '/api/keys/check' && request.method === 'GET') {
 			return this.handleApiKeysCheck();
 		}
@@ -634,6 +637,32 @@ export class LoadBalancer extends DurableObject {
 			});
 		} catch (error: any) {
 			console.error('处理API密钥失败:', error);
+			return new Response(JSON.stringify({ error: error.message || '内部服务器错误' }), {
+				status: 500,
+				headers: { 'Content-Type': 'application/json' },
+			});
+		}
+	}
+
+	async handleDeleteApiKeys(request: Request): Promise<Response> {
+		try {
+			const { keys } = (await request.json()) as { keys: string[] };
+			if (!Array.isArray(keys) || keys.length === 0) {
+				return new Response(JSON.stringify({ error: '请求体无效，需要一个包含key的非空数组。' }), {
+					status: 400,
+					headers: { 'Content-Type': 'application/json' },
+				});
+			}
+
+			const placeholders = keys.map(() => '?').join(',');
+			await this.ctx.storage.sql.exec(`DELETE FROM api_keys WHERE api_key IN (${placeholders})`, ...keys);
+
+			return new Response(JSON.stringify({ message: 'API密钥删除成功。' }), {
+				status: 200,
+				headers: { 'Content-Type': 'application/json' },
+			});
+		} catch (error: any) {
+			console.error('删除API密钥失败:', error);
 			return new Response(JSON.stringify({ error: error.message || '内部服务器错误' }), {
 				status: 500,
 				headers: { 'Content-Type': 'application/json' },
