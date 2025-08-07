@@ -4,14 +4,12 @@
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "durable-object-starter",
+	"name": "gemini-balance-do",
 	"main": "src/index.ts",
 	"compatibility_date": "2025-08-05",
 	"migrations": [
 		{
-			"new_sqlite_classes": [
-				"MyDurableObject"
-			],
+			"new_sqlite_classes": ["LoadBalancer"],
 			"tag": "v1"
 		}
 	],
@@ -22,8 +20,8 @@
 	"durable_objects": {
 		"bindings": [
 			{
-				"class_name": "MyDurableObject",
-				"name": "MY_DURABLE_OBJECT"
+				"class_name": "LoadBalancer",
+				"name": "LOAD_BALANCER"
 			}
 		]
 	},
