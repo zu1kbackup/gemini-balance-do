@@ -46,6 +46,8 @@ export class LoadBalancer extends DurableObject {
 	 */
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env);
+		// Initialize the database schema upon first creation.
+		this.ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS api_keys (api_key TEXT PRIMARY KEY)');
 	}
 
 	async fetch(request: Request): Promise<Response> {
@@ -55,14 +57,26 @@ export class LoadBalancer extends DurableObject {
 
 		const url = new URL(request.url);
 		const pathname = url.pathname;
+
+		// Admin API routes
+		if (pathname === '/api/keys' && request.method === 'POST') {
+			return this.handleApiKeys(request);
+		}
+		if (pathname === '/api/keys' && request.method === 'GET') {
+			return this.getAllApiKeys();
+		}
+		if (pathname === '/api/keys/check' && request.method === 'GET') {
+			return this.handleApiKeysCheck();
+		}
+
 		const search = url.search;
 
-		// 处理OpenAI格式请求
+		// OpenAI compatible routes
 		if (
-			url.pathname.endsWith('/chat/completions') ||
-			url.pathname.endsWith('/completions') ||
-			url.pathname.endsWith('/embeddings') ||
-			url.pathname.endsWith('/models')
+			pathname.endsWith('/chat/completions') ||
+			pathname.endsWith('/completions') ||
+			pathname.endsWith('/embeddings') ||
+			pathname.endsWith('/models')
 		) {
 			const assert = (success: Boolean) => {
 				if (!success) {
@@ -71,49 +85,46 @@ export class LoadBalancer extends DurableObject {
 			};
 			const errHandler = (err: Error) => {
 				console.error(err);
-				return new Response(err.message, fixCors({ statusText: err.message ?? 500 }));
+				return new Response(err.message, fixCors({ statusText: err.message ?? 'Internal Server Error', status: 500 }));
 			};
-			const auth = request.headers.get('Authorization');
+
+			const apiKey = await this.getRandomApiKey();
+			if (!apiKey) {
+				return new Response('No API keys configured in the load balancer.', { status: 500 });
+			}
+
 			switch (true) {
 				case pathname.endsWith('/chat/completions'):
 					assert(request.method === 'POST');
-					return this.handleCompletions(await request.json(), auth!).catch(errHandler);
+					return this.handleCompletions(await request.json(), apiKey).catch(errHandler);
 				case pathname.endsWith('/embeddings'):
 					assert(request.method === 'POST');
-					return this.handleEmbeddings(await request.json(), auth!).catch(errHandler);
+					return this.handleEmbeddings(await request.json(), apiKey).catch(errHandler);
 				case pathname.endsWith('/models'):
 					assert(request.method === 'GET');
-					return this.handleModels(auth!).catch(errHandler);
+					return this.handleModels(apiKey).catch(errHandler);
 				default:
 					throw new HttpError('404 Not Found', 404);
 			}
 		}
 
-		const targetUrl = `https://generativelanguage.googleapis.com${pathname}${search}`;
+		// Direct Gemini proxy
+		const targetUrl = `${BASE_URL}${pathname}${search}`;
 
 		try {
 			const headers = new Headers();
-			for (const [key, value] of request.headers.entries()) {
-				if (key.trim().toLowerCase() === 'x-goog-api-key') {
-					const apiKeys = value
-						.split(',')
-						.map((k) => k.trim())
-						.filter((k) => k);
-					if (apiKeys.length > 0) {
-						const selectedKey = apiKeys[Math.floor(Math.random() * apiKeys.length)];
-						console.log(`Gemini Selected API Key: ${selectedKey}`);
-						headers.set('x-goog-api-key', selectedKey);
-					}
-				} else {
-					if (key.trim().toLowerCase() === 'content-type') {
-						headers.set(key, value);
-					}
-				}
+			const apiKey = await this.getRandomApiKey();
+			if (!apiKey) {
+				return new Response('No API keys configured in the load balancer.', { status: 500 });
+			}
+			headers.set('x-goog-api-key', apiKey);
+
+			// Forward content-type header
+			if (request.headers.has('content-type')) {
+				headers.set('content-type', request.headers.get('content-type')!);
 			}
 
-			console.log('Request Sending to Gemini');
-			console.log('targetUrl:' + targetUrl);
-			console.log(JSON.stringify(headers, null, 2));
+			console.log(`Request Sending to Gemini: ${targetUrl}`);
 
 			const response = await fetch(targetUrl, {
 				method: request.method,
@@ -124,9 +135,7 @@ export class LoadBalancer extends DurableObject {
 			console.log('Call Gemini Success');
 
 			const responseHeaders = new Headers(response.headers);
-
-			console.log('Response status:', response.status);
-
+			responseHeaders.set('Access-Control-Allow-Origin', '*');
 			responseHeaders.delete('transfer-encoding');
 			responseHeaders.delete('connection');
 			responseHeaders.delete('keep-alive');
@@ -600,5 +609,108 @@ export class LoadBalancer extends DurableObject {
 			controller.enqueue(`data: ${JSON.stringify(obj)}\n\n`);
 		}
 		controller.enqueue('data: [DONE]\n\n');
+	}
+	// =================================================================================================
+	// Admin API Handlers
+	// =================================================================================================
+
+	async handleApiKeys(request: Request): Promise<Response> {
+		try {
+			const { keys } = (await request.json()) as { keys: string[] };
+			if (!Array.isArray(keys) || keys.length === 0) {
+				return new Response(JSON.stringify({ error: '请求体无效，需要一个包含key的非空数组。' }), {
+					status: 400,
+					headers: { 'Content-Type': 'application/json' },
+				});
+			}
+
+			for (const key of keys) {
+				await this.ctx.storage.sql.exec('INSERT OR IGNORE INTO api_keys (api_key) VALUES (?)', key);
+			}
+
+			return new Response(JSON.stringify({ message: 'API密钥添加成功。' }), {
+				status: 200,
+				headers: { 'Content-Type': 'application/json' },
+			});
+		} catch (error: any) {
+			console.error('处理API密钥失败:', error);
+			return new Response(JSON.stringify({ error: error.message || '内部服务器错误' }), {
+				status: 500,
+				headers: { 'Content-Type': 'application/json' },
+			});
+		}
+	}
+
+	async handleApiKeysCheck(): Promise<Response> {
+		try {
+			const results = await this.ctx.storage.sql.exec('SELECT api_key FROM api_keys').raw<any>();
+			const keys = Array.from(results);
+
+			const checkResults = await Promise.all(
+				keys.map(async (key) => {
+					try {
+						const response = await fetch(`${BASE_URL}/${API_VERSION}/models?key=${key}`);
+						return { key, valid: response.ok, error: response.ok ? null : await response.text() };
+					} catch (e: any) {
+						return { key, valid: false, error: e.message };
+					}
+				})
+			);
+
+			const invalidKeys = checkResults.filter((result) => !result.valid).map((result) => result.key);
+			if (invalidKeys.length > 0) {
+				const placeholders = invalidKeys.map(() => '?').join(', ');
+				const statement = `DELETE FROM api_keys WHERE api_key IN (${placeholders})`;
+				this.ctx.storage.sql.exec(statement, ...invalidKeys);
+				console.log(`移除了 ${invalidKeys.length} 个无效的API密钥。`);
+			}
+
+			return new Response(JSON.stringify(checkResults), {
+				headers: { 'Content-Type': 'application/json' },
+			});
+		} catch (error: any) {
+			console.error('检查API密钥失败:', error);
+			return new Response(JSON.stringify({ error: error.message || '内部服务器错误' }), {
+				status: 500,
+				headers: { 'Content-Type': 'application/json' },
+			});
+		}
+	}
+
+	async getAllApiKeys(): Promise<Response> {
+		try {
+			const results = await this.ctx.storage.sql.exec('SELECT * FROM api_keys').raw<any>();
+			console.log('res: ', results);
+			const keys = Array.from(results);
+			return new Response(JSON.stringify({ keys }), {
+				headers: { 'Content-Type': 'application/json' },
+			});
+		} catch (error: any) {
+			console.error('获取API密钥失败:', error);
+			return new Response(JSON.stringify({ error: error.message || '内部服务器错误' }), {
+				status: 500,
+				headers: { 'Content-Type': 'application/json' },
+			});
+		}
+	}
+
+	// =================================================================================================
+	// Helper Methods
+	// =================================================================================================
+
+	private async getRandomApiKey(): Promise<string | null> {
+		try {
+			const results = await this.ctx.storage.sql.exec('SELECT * FROM api_keys ORDER BY RANDOM() LIMIT 1').raw<any>();
+			const keys = Array.from(results);
+			if (keys) {
+				const key = keys[0] as any;
+				console.log(`Gemini Selected API Key: ${key}`);
+				return key;
+			}
+			return null;
+		} catch (error) {
+			console.error('获取随机API密钥失败:', error);
+			return null;
+		}
 	}
 }
