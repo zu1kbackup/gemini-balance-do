@@ -104,4 +104,5 @@ curl -X POST https://<你的Worker地址>/v1beta/models/gemini-1.5-flash:generat
 
 *   `GET /api/keys`: 获取所有已存储的 API 密钥。
 *   `POST /api/keys`: 批量添加 API 密钥。请求体为 `{"keys": ["key1", "key2"]}`。
-*   `GET /api/keys/check`: 检查所有密钥的有效性，并自动移除失效的密钥。
+*   `GET /api/keys/check`: 检查所有密钥的有效性
+*   `DELETE /api/keys`: 批量删除 API 密钥。请求体为 `{["key1", "key2"]}`
