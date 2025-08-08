@@ -81,34 +81,7 @@ export class LoadBalancer extends DurableObject {
 			pathname.endsWith('/embeddings') ||
 			pathname.endsWith('/models')
 		) {
-			const assert = (success: Boolean) => {
-				if (!success) {
-					throw new HttpError('The specified HTTP method is not allowed for the requested resource', 400);
-				}
-			};
-			const errHandler = (err: Error) => {
-				console.error(err);
-				return new Response(err.message, fixCors({ statusText: err.message ?? 'Internal Server Error', status: 500 }));
-			};
-
-			const apiKey = await this.getRandomApiKey();
-			if (!apiKey) {
-				return new Response('No API keys configured in the load balancer.', { status: 500 });
-			}
-
-			switch (true) {
-				case pathname.endsWith('/chat/completions'):
-					assert(request.method === 'POST');
-					return this.handleCompletions(await request.json(), apiKey).catch(errHandler);
-				case pathname.endsWith('/embeddings'):
-					assert(request.method === 'POST');
-					return this.handleEmbeddings(await request.json(), apiKey).catch(errHandler);
-				case pathname.endsWith('/models'):
-					assert(request.method === 'GET');
-					return this.handleModels(apiKey).catch(errHandler);
-				default:
-					throw new HttpError('404 Not Found', 404);
-			}
+			return this.handleOpenAI(request);
 		}
 
 		// Direct Gemini proxy
@@ -317,13 +290,12 @@ export class LoadBalancer extends DurableObject {
 					)
 					.pipeThrough(new TextEncoderStream());
 			} else {
-				let textBody = await response.text();
+				let body: any = await response.text();
 				try {
-					const parsedBody = JSON.parse(textBody);
-					if (!parsedBody.candidates) {
+					body = JSON.parse(body);
+					if (!body.candidates) {
 						throw new Error('Invalid completion object');
 					}
-					responseBody = this.processCompletionsResponse(parsedBody, model, id);
 				} catch (err) {
 					console.error('Error parsing response:', err);
 					return new Response(JSON.stringify({ error: 'Failed to parse response' }), {
@@ -331,6 +303,7 @@ export class LoadBalancer extends DurableObject {
 						status: 500,
 					});
 				}
+				responseBody = this.processCompletionsResponse(body, model, id);
 			}
 		}
 		return new Response(responseBody, fixCors(response));
@@ -362,7 +335,7 @@ export class LoadBalancer extends DurableObject {
 			safetySettings,
 			generationConfig: this.transformConfig(req),
 			...this.transformTools(req),
-			cachedContent: undefined as any, // 添加 cachedContent 属性以支持类型
+			cachedContent: undefined as any,
 		};
 	}
 
@@ -378,6 +351,12 @@ export class LoadBalancer extends DurableObject {
 			temperature: 'temperature',
 			top_k: 'topK',
 			top_p: 'topP',
+		};
+
+		const thinkingBudgetMap: Record<string, number> = {
+			low: 1024,
+			medium: 8192,
+			high: 24576,
 		};
 
 		let cfg: any = {};
@@ -405,6 +384,9 @@ export class LoadBalancer extends DurableObject {
 				default:
 					throw new HttpError('Unsupported response_format.type', 400);
 			}
+		}
+		if (req.reasoning_effort) {
+			cfg.thinkingConfig = { thinkingBudget: thinkingBudgetMap[req.reasoning_effort] };
 		}
 
 		return cfg;
@@ -471,6 +453,17 @@ export class LoadBalancer extends DurableObject {
 			const funcs = req.tools.filter((tool: any) => tool.type === 'function' && tool.function?.name !== 'googleSearch');
 			if (funcs.length > 0) {
 				tools = [{ function_declarations: funcs.map((schema: any) => schema.function) }];
+			}
+		}
+		if (req.tool_choice) {
+			const allowed_function_names = req.tool_choice?.type === 'function' ? [req.tool_choice?.function?.name] : undefined;
+			if (allowed_function_names || typeof req.tool_choice === 'string') {
+				tool_config = {
+					function_calling_config: {
+						mode: allowed_function_names ? 'ANY' : req.tool_choice.toUpperCase(),
+						allowed_function_names,
+					},
+				};
 			}
 		}
 		return { tools, tool_config };
@@ -572,7 +565,22 @@ export class LoadBalancer extends DurableObject {
 					this.last[index] = '';
 				}
 
-				const delta = text.substring(this.last[index].length);
+				const lastText = this.last[index] || '';
+				let delta = '';
+
+				if (text.startsWith(lastText)) {
+					delta = text.substring(lastText.length);
+				} else {
+					// Find the common prefix
+					let i = 0;
+					while (i < text.length && i < lastText.length && text[i] === lastText[i]) {
+						i++;
+					}
+					// Send the rest of the new text as delta.
+					// This might not be perfect for all clients, but it prevents data loss.
+					delta = text.substring(i);
+				}
+
 				this.last[index] = text;
 
 				const obj = {
@@ -740,6 +748,40 @@ export class LoadBalancer extends DurableObject {
 		} catch (error) {
 			console.error('获取随机API密钥失败:', error);
 			return null;
+		}
+	}
+
+	private async handleOpenAI(request: Request): Promise<Response> {
+		const url = new URL(request.url);
+		const pathname = url.pathname;
+
+		const assert = (success: Boolean) => {
+			if (!success) {
+				throw new HttpError('The specified HTTP method is not allowed for the requested resource', 400);
+			}
+		};
+		const errHandler = (err: Error) => {
+			console.error(err);
+			return new Response(err.message, fixCors({ statusText: err.message ?? 'Internal Server Error', status: 500 }));
+		};
+
+		const apiKey = await this.getRandomApiKey();
+		if (!apiKey) {
+			return new Response('No API keys configured in the load balancer.', { status: 500 });
+		}
+
+		switch (true) {
+			case pathname.endsWith('/chat/completions'):
+				assert(request.method === 'POST');
+				return this.handleCompletions(await request.json(), apiKey).catch(errHandler);
+			case pathname.endsWith('/embeddings'):
+				assert(request.method === 'POST');
+				return this.handleEmbeddings(await request.json(), apiKey).catch(errHandler);
+			case pathname.endsWith('/models'):
+				assert(request.method === 'GET');
+				return this.handleModels(apiKey).catch(errHandler);
+			default:
+				throw new HttpError('404 Not Found', 404);
 		}
 	}
 }
