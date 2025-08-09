@@ -79,7 +79,7 @@ BaseURL: <你的worker地址>
 
 API 密钥: `ajielu`
 
-**默认 API 密钥为 `ajielu`，如果需要自定义，可自行去[](./wrangler.jsonc)中修改`AUTH_KEY`的值，修改完成以后重新部署即可**
+**默认 API 密钥为 `ajielu`，如果需要自定义，可自行去 `wrangler.jsonc` 中修改`AUTH_KEY`的值，修改完成以后重新部署即可**
 
 ### 管理 API
 
