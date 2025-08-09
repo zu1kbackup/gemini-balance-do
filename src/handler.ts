@@ -37,6 +37,7 @@ const makeHeaders = (apiKey: string, more?: Record<string, string>) => ({
 
 /** A Durable Object's behavior is defined in an exported Javascript class */
 export class LoadBalancer extends DurableObject {
+	env: Env;
 	/**
 	 * The constructor is invoked once upon creation of the Durable Object, i.e. the first call to
 	 * 	`DurableObjectStub::get` for a given identifier (no-op constructors can be omitted)
@@ -46,6 +47,7 @@ export class LoadBalancer extends DurableObject {
 	 */
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env);
+		this.env = env;
 		// Initialize the database schema upon first creation.
 		this.ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS api_keys (api_key TEXT PRIMARY KEY)');
 	}
@@ -85,6 +87,13 @@ export class LoadBalancer extends DurableObject {
 		}
 
 		// Direct Gemini proxy
+		const authKey = this.env.AUTH_KEY;
+		if (authKey) {
+			const requestKey = request.headers.get('x-goog-api-key');
+			if (requestKey !== authKey) {
+				return new Response('Unauthorized', { status: 401, headers: fixCors({}).headers });
+			}
+		}
 		const targetUrl = `${BASE_URL}${pathname}${search}`;
 
 		try {
@@ -752,6 +761,14 @@ export class LoadBalancer extends DurableObject {
 	}
 
 	private async handleOpenAI(request: Request): Promise<Response> {
+		const authKey = this.env.AUTH_KEY;
+		if (authKey) {
+			const authHeader = request.headers.get('Authorization');
+			const token = authHeader?.replace('Bearer ', '');
+			if (token !== authKey) {
+				return new Response('Unauthorized', { status: 401, headers: fixCors({}).headers });
+			}
+		}
 		const url = new URL(request.url);
 		const pathname = url.pathname;
 

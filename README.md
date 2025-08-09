@@ -1,5 +1,7 @@
 # Gemini API 负载均衡器 (gemini-balance-do)
 
+> 参考项目：https://github.com/tech-shrimp/gemini-balance-lite ，基于爬爬虾的项目改造了一下，更适合在 cloudflare worker 中使用，即使是广东用户也不担心，哪怕你请求的 worker 节点在香港，最后请求也会路由到美国再向 Gemini 发起请求！
+
 这是一个部署在 Cloudflare Workers 上的 Gemini API 负载均衡器和代理服务，使用了 Durable Objects 来存储和管理 API 密钥。
 
 它旨在解决以下问题：
@@ -61,44 +63,23 @@
 
 ## 🔑 API 密钥管理
 
-部署完成后，你可以通过访问你的 Worker URL 来管理 API 密钥。
+部署完成后，你可以通过访问你的 Worker URL 来管理 Gemini API 密钥。
 
 *   **访问管理面板**: 在浏览器中打开你的 Worker URL (例如 `https://gemini-balance-do.your-worker.workers.dev`)。
 *   **批量添加密钥**: 在文本框中输入你的 Gemini API 密钥，每行一个，然后点击“添加密钥”。
 *   **查看和刷新**: 在右侧面板可以查看已存储的密钥，并可以点击“刷新”按钮更新列表。
+*   **一键检查**： 点击“一键检查”按钮，可以检查 API key 可用性。
+*   **批量删除**： 选中无效的 API key，可以一键删除所有无效的 API key。
 
 ## 💻 API 用法
 
-### OpenAI 兼容端点
+使用方式，在 AI 客户端中，填入以下配置：
 
-你可以将任何兼容 OpenAI 的客户端的基础 URL 指向你的 Worker URL。
+BaseURL: <你的worker地址>
 
-*   **模型列表**: `GET /v1/models`
-*   **聊天补全**: `POST /v1/chat/completions`
-*   **文本嵌入**: `POST /v1/embeddings`
+API 密钥: `ajielu`
 
-**示例 (使用 cURL):**
-```bash
-curl -X POST https://<你的Worker地址>/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "gemini-1.5-flash",
-    "messages": [{"role": "user", "content": "你好！"}]
-  }'
-```
-
-### Gemini 原生代理
-
-项目也会将其他所有路径的请求直接代理到 Gemini API。
-
-**示例 (使用 cURL):**
-```bash
-curl -X POST https://<你的Worker地址>/v1beta/models/gemini-1.5-flash:generateContent \
-  -H "Content-Type: application/json" \
-  -d '{
-    "contents": [{"parts":[{"text": "你好"}]}]
-  }'
-```
+**默认 API 密钥为 `ajielu`，如果需要自定义，可自行去[](./wrangler.jsonc)中修改`AUTH_KEY`的值，修改完成以后重新部署即可**
 
 ### 管理 API
 
