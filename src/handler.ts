@@ -57,6 +57,16 @@ export class LoadBalancer extends DurableObject {
 			return handleOPTIONS();
 		}
 
+
+		// Direct Gemini proxy
+		const authKey = this.env.AUTH_KEY;
+		if (authKey) {
+			const requestKey = request.headers.get('x-goog-api-key');
+			if (requestKey !== authKey) {
+				return new Response('Unauthorized', { status: 401, headers: fixCors({}).headers });
+			}
+		}
+
 		const url = new URL(request.url);
 		const pathname = url.pathname;
 
@@ -86,14 +96,6 @@ export class LoadBalancer extends DurableObject {
 			return this.handleOpenAI(request);
 		}
 
-		// Direct Gemini proxy
-		const authKey = this.env.AUTH_KEY;
-		if (authKey) {
-			const requestKey = request.headers.get('x-goog-api-key');
-			if (requestKey !== authKey) {
-				return new Response('Unauthorized', { status: 401, headers: fixCors({}).headers });
-			}
-		}
 		const targetUrl = `${BASE_URL}${pathname}${search}`;
 
 		try {
