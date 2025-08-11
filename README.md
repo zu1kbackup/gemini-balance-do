@@ -4,6 +4,10 @@
 
 这是一个部署在 Cloudflare Workers 上的 Gemini API 负载均衡器和代理服务，使用了 Durable Objects 来存储和管理 API 密钥。
 
+Youtube: https://youtu.be/_5a6HfL2wn4
+
+> 假如视频对你有帮助，别忘了帮我点个赞，有什么问题也可以在评论区讨论😂
+
 它旨在解决以下问题：
 *   将多个 Gemini API 密钥聚合到一个端点中。
 *   通过随机轮询密钥池来实现请求的负载均衡。
