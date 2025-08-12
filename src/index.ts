@@ -60,7 +60,8 @@ type Env = {
     HOME_ACCESS_KEY: string;
 };
 
-module.exports = {
+export default {
     fetch: app.fetch,
-    LoadBalancer,
 };
+
+export { LoadBalancer };
