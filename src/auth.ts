@@ -1,4 +1,5 @@
-export function getAuthKey(request: Request): string | undefined {
+export function getAuthKey(request: Request, sessionKey?: string): string | undefined {
+    if (sessionKey) return sessionKey;
     // 先查 cookie
     const cookie = request.headers.get('Cookie');
     if (cookie) {
@@ -13,8 +14,9 @@ export function getAuthKey(request: Request): string | undefined {
     return undefined;
 }
 
-export function isAdminAuthenticated(request: Request, authKey: string): boolean {
-    if (!authKey) return false;
+// 管理 API 校验 HOME_ACCESS_KEY
+export function isAdminAuthenticated(request: Request, homeAccessKey: string): boolean {
+    if (!homeAccessKey) return false;
     const key = getAuthKey(request);
-    return key === authKey;
+    return key === homeAccessKey;
 }

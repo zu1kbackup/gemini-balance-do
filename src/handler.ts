@@ -58,16 +58,16 @@ export class LoadBalancer extends DurableObject {
 		const pathname = url.pathname;
 
 		// 静态资源直接放行
-		if (pathname === '/favicon.ico') {
+		if (pathname === '/favicon.ico' || pathname === '/robots.txt') {
 			return new Response('', { status: 204 });
 		}
 
-		// 管理 API 权限校验
+		// 管理 API 权限校验（使用 HOME_ACCESS_KEY）
 		if (
 			(pathname === '/api/keys' && ['POST', 'GET', 'DELETE'].includes(request.method)) ||
 			(pathname === '/api/keys/check' && request.method === 'GET')
 		) {
-			if (!isAdminAuthenticated(request, this.env.AUTH_KEY)) {
+			if (!isAdminAuthenticated(request, this.env.HOME_ACCESS_KEY)) {
 				return new Response(JSON.stringify({ error: 'Unauthorized' }), {
 					status: 401,
 					headers: fixCors({ headers: { 'Content-Type': 'application/json' } }).headers,

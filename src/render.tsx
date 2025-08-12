@@ -71,7 +71,9 @@ export const Render = ({ isAuthenticated, showWarning }: { isAuthenticated: bool
 				{showWarning && (
 					<div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-3 mb-4" role="alert">
 						<strong class="font-bold">安全警告：</strong>
-						<span class="block">当前 AUTH_KEY 为默认值，请尽快修改Cloudflare Worker环境变量并重新部署 Worker！</span>
+						<span class="block">
+							当前 HOME_ACCESS_KEY 或 AUTH_KEY 为默认值，请尽快修改环境变量并重新部署 Worker！
+						</span>
 					</div>
 				)}
 				<div class="flex h-screen">
@@ -139,12 +141,7 @@ export const Render = ({ isAuthenticated, showWarning }: { isAuthenticated: bool
 				<script
 					dangerouslySetInnerHTML={{
 						__html: `
-								// 修改登录验证逻辑 - 每次都要求输入HOME_ACCESS_KEY
-								const key = prompt('请输入管理面板访问密钥:');
-								if (!key) {
-									alert('需要访问密钥才能进入管理面板');
-									throw new Error('Authentication required');
-								}
+								// 修改登录验证逻辑 - 输入HOME_ACCESS_KEY
 								fetch('/api/auth', {
 									method: 'POST',
 									headers: { 'Content-Type': 'application/json' },
