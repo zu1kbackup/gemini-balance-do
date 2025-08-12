@@ -12,6 +12,12 @@ export const Render = ({ isAuthenticated, showWarning }: { isAuthenticated: bool
 				</head>
 				<body class="bg-gray-100 flex items-center justify-center h-screen">
 					<div class="w-full max-w-xs">
+						{showWarning && (
+							<div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-3 mb-4" role="alert">
+								<strong class="font-bold">安全警告：</strong>
+								<span class="block">当前 AUTH_KEY 为默认值，请尽快修改环境变量并重新部署 Worker！</span>
+							</div>
+						)}
 						<form id="login-form" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
 							<div class="mb-4">
 								<label class="block text-gray-700 text-sm font-bold mb-2" for="auth-key">
@@ -69,11 +75,10 @@ export const Render = ({ isAuthenticated, showWarning }: { isAuthenticated: bool
 			</head>
 			<body class="bg-gray-100">
 				{showWarning && (
-					<script>
-						alert(
-							'检测到您正在使用默认的AUTH_KEY，为了您的账户安全，请立刻修改Cloudflare Wroker环境变量中 `AUTH_KEY` 的值并重新部署。'
-						);
-					</script>
+					<div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-3 mb-4" role="alert">
+						<strong class="font-bold">安全警告：</strong>
+						<span class="block">当前 AUTH_KEY 为默认值，请尽快修改环境变量并重新部署 Worker！</span>
+					</div>
 				)}
 				<div class="flex h-screen">
 					<div class="w-64 bg-gray-800 text-white p-4">

@@ -54,14 +54,15 @@ export class LoadBalancer extends DurableObject {
 	}
 
 	async fetch(request: Request): Promise<Response> {
-		if (request.method === 'OPTIONS') {
-			return handleOPTIONS();
-		}
-
 		const url = new URL(request.url);
 		const pathname = url.pathname;
 
-		// Admin API routes
+		// 静态资源直接放行
+		if (pathname === '/favicon.ico') {
+			return new Response('', { status: 204 });
+		}
+
+		// 管理 API 权限校验
 		if (
 			(pathname === '/api/keys' && ['POST', 'GET', 'DELETE'].includes(request.method)) ||
 			(pathname === '/api/keys/check' && request.method === 'GET')
