@@ -87,6 +87,8 @@ API 密钥: `<你的AUTH_KEY>`
 
 **默认 API 密钥为 `ajielu`，强烈建议你在 Cloudflare Worker环境变量中修改 `AUTH_KEY` 的值，并重新部署 Worker。**
 
+**管理面板访问密钥为 `7b18e536c27ab304266db3220b8e000db8fbbe35d6e1fde729a1a1d47303858d`，用于访问管理面板时的身份验证，如果需要自定义，可自行去 `wrangler.jsonc` 中修改`HOME_ACCESS_KEY`的值，修改完成后重新部署即可**
+
 ### 管理 API
 
 所有管理 API 均需在请求头添加 `Authorization: Bearer <你的AUTH_KEY>` 进行认证：
