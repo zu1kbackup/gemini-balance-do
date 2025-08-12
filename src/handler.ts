@@ -1,4 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
+import { isAdminAuthenticated } from './auth';
 
 class HttpError extends Error {
 	status: number;
@@ -61,17 +62,28 @@ export class LoadBalancer extends DurableObject {
 		const pathname = url.pathname;
 
 		// Admin API routes
-		if (pathname === '/api/keys' && request.method === 'POST') {
-			return this.handleApiKeys(request);
-		}
-		if (pathname === '/api/keys' && request.method === 'GET') {
-			return this.getAllApiKeys();
-		}
-		if (pathname === '/api/keys' && request.method === 'DELETE') {
-			return this.handleDeleteApiKeys(request);
-		}
-		if (pathname === '/api/keys/check' && request.method === 'GET') {
-			return this.handleApiKeysCheck();
+		if (
+			(pathname === '/api/keys' && ['POST', 'GET', 'DELETE'].includes(request.method)) ||
+			(pathname === '/api/keys/check' && request.method === 'GET')
+		) {
+			if (!isAdminAuthenticated(request, this.env.AUTH_KEY)) {
+				return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+					status: 401,
+					headers: fixCors({ headers: { 'Content-Type': 'application/json' } }).headers,
+				});
+			}
+			if (pathname === '/api/keys' && request.method === 'POST') {
+				return this.handleApiKeys(request);
+			}
+			if (pathname === '/api/keys' && request.method === 'GET') {
+				return this.getAllApiKeys();
+			}
+			if (pathname === '/api/keys' && request.method === 'DELETE') {
+				return this.handleDeleteApiKeys(request);
+			}
+			if (pathname === '/api/keys/check' && request.method === 'GET') {
+				return this.handleApiKeysCheck();
+			}
 		}
 
 		const search = url.search;

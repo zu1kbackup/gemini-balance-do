@@ -67,13 +67,15 @@ Youtube: https://youtu.be/_5a6HfL2wn4
 
 ## 🔑 API 密钥管理
 
-部署完成后，你可以通过访问你的 Worker URL 来管理 Gemini API 密钥。
+部署完成后，你可以通过访问你的 Worker URL 来管理 Gemini API 密钥。**管理页面和管理 API 均需要权限认证，默认认证方式为请求头 `Authorization: Bearer <你的AUTH_KEY>`，请务必修改默认密钥。**
 
-*   **访问管理面板**: 在浏览器中打开你的 Worker URL (例如 `https://gemini-balance-do.your-worker.workers.dev`)。
+*   **访问管理面板**: 在浏览器中打开你的 Worker URL (例如 `https://gemini-balance-do.your-worker.workers.dev`)，首次访问会显示登录框，需要输入你的 AUTH_KEY 进行认证，认证通过后才能进入管理页面。
 *   **批量添加密钥**: 在文本框中输入你的 Gemini API 密钥，每行一个，然后点击“添加密钥”。
 *   **查看和刷新**: 在右侧面板可以查看已存储的密钥，并可以点击“刷新”按钮更新列表。
 *   **一键检查**： 点击“一键检查”按钮，可以检查 API key 可用性。
 *   **批量删除**： 选中无效的 API key，可以一键删除所有无效的 API key。
+
+> **安全提示：请务必修改默认环境变量 `AUTH_KEY`，并重新部署 Worker。否则任何人都可以通过默认密钥访问你的管理页面和管理 API。**
 
 ## 💻 API 用法
 
@@ -81,13 +83,15 @@ Youtube: https://youtu.be/_5a6HfL2wn4
 
 BaseURL: <你的worker地址>
 
-API 密钥: `ajielu`
+API 密钥: `<你的AUTH_KEY>`
 
-**默认 API 密钥为 `ajielu`，如果需要自定义，可自行去 `wrangler.jsonc` 中修改`AUTH_KEY`的值，修改完成以后重新部署即可**
+**默认 API 密钥为 `ajielu`，强烈建议你在 `wrangler.jsonc` 或 Cloudflare 环境变量中修改 `AUTH_KEY` 的值，并重新部署 Worker。**
 
 ### 管理 API
 
+所有管理 API 均需在请求头添加 `Authorization: Bearer <你的AUTH_KEY>` 进行认证：
+
 *   `GET /api/keys`: 获取所有已存储的 API 密钥。
 *   `POST /api/keys`: 批量添加 API 密钥。请求体为 `{"keys": ["key1", "key2"]}`。
-*   `GET /api/keys/check`: 检查所有密钥的有效性
-*   `DELETE /api/keys`: 批量删除 API 密钥。请求体为 `{["key1", "key2"]}`
+*   `GET /api/keys/check`: 检查所有密钥的有效性。
+*   `DELETE /api/keys`: 批量删除 API 密钥。请求体为 `{"keys": ["key1", "key2"]}`。
