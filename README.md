@@ -85,7 +85,7 @@ BaseURL: <你的worker地址>
 
 API 密钥: `<你的AUTH_KEY>`
 
-**默认 API 密钥为 `ajielu`，强烈建议你在 `wrangler.jsonc` 或 Cloudflare 环境变量中修改 `AUTH_KEY` 的值，并重新部署 Worker。**
+**默认 API 密钥为 `ajielu`，强烈建议你在 Cloudflare Worker环境变量中修改 `AUTH_KEY` 的值，并重新部署 Worker。**
 
 ### 管理 API
 

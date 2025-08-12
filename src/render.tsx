@@ -71,7 +71,7 @@ export const Render = ({ isAuthenticated, showWarning }: { isAuthenticated: bool
 				{showWarning && (
 					<div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-3 mb-4" role="alert">
 						<strong class="font-bold">安全警告：</strong>
-						<span class="block">当前 AUTH_KEY 为默认值，请尽快修改环境变量并重新部署 Worker！</span>
+						<span class="block">当前 AUTH_KEY 为默认值，请尽快修改Cloudflare Worker环境变量并重新部署 Worker！</span>
 					</div>
 				)}
 				<div class="flex h-screen">
