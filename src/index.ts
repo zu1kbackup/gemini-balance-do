@@ -53,10 +53,6 @@ app.all('*', async (c) => {
     });
 });
 
-export const fetch = app.fetch;
-
-export { LoadBalancer };
-
 type Env = {
     LOAD_BALANCER: DurableObjectNamespace<LoadBalancer>;
     AUTH_KEY: string;
