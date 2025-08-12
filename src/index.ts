@@ -62,3 +62,8 @@ type Env = {
     AUTH_KEY: string;
     HOME_ACCESS_KEY: string;
 };
+
+module.exports = {
+    fetch: app.fetch,
+    LoadBalancer,
+};
