@@ -34,22 +34,26 @@ export const Render = ({ isAuthenticated, showWarning }: { isAuthenticated: bool
 							</div>
 						</form>
 					</div>
-					<script>
-						document.getElementById('login-form').addEventListener('submit', async (e) => {
-							e.preventDefault();
-							const key = document.getElementById('auth-key').value;
-							const response = await fetch(window.location.href, {
-								method: 'POST',
-								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify({ key }),
-							});
-							if (response.ok) {
-								window.location.reload();
-							} else {
-								alert('登录失败');
-							}
-						});
-					</script>
+					<script
+						dangerouslySetInnerHTML={{
+							__html: `
+                                document.getElementById('login-form').addEventListener('submit', async function(e) {
+                                    e.preventDefault();
+                                    const key = document.getElementById('auth-key').value;
+                                    const response = await fetch(window.location.href, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ key }),
+                                    });
+                                    if (response.ok) {
+                                        window.location.reload();
+                                    } else {
+                                        alert('登录失败');
+                                    }
+                                });
+                            `,
+						}}
+					></script>
 				</body>
 			</html>
 		);
