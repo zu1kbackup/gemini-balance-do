@@ -85,6 +85,8 @@ API 密钥: `ajielu`
 
 **默认 API 密钥为 `ajielu`，如果需要自定义，可自行去 `wrangler.jsonc` 中修改`AUTH_KEY`的值，修改完成以后重新部署即可**
 
+**管理面板访问密钥为 `7b18e536c27ab304266db3220b8e000db8fbbe35d6e1fde729a1a1d47303858d`，用于访问管理面板时的身份验证，如果需要自定义，可自行去 `wrangler.jsonc` 中修改`HOME_ACCESS_KEY`的值，修改完成后重新部署即可**
+
 ### 管理 API
 
 *   `GET /api/keys`: 获取所有已存储的 API 密钥。
