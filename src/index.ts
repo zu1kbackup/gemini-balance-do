@@ -5,8 +5,24 @@ import { LoadBalancer } from './handler';
 const app = new Hono<{ Bindings: Env }>();
 
 // The / route returns the admin UI.
-app.get('/', (c) => {
-	return c.html(Render());
+app.get('/', async (c) => {
+	const html = Render();
+	return c.html(html);
+});
+
+// Skip authentication for static assets like favicon
+app.get('/favicon.ico', async (c) => {
+	return c.text('Not found', 404);
+});
+
+// 添加认证接口
+app.post('/api/auth', async (c) => {
+	const { key } = await c.req.json();
+	if (key === c.env.HOME_ACCESS_KEY) {
+		return c.json({ success: true });
+	} else {
+		return c.json({ error: 'Invalid key' }, 401);
+	}
 });
 
 // All other requests are forwarded to the Durable Object.
