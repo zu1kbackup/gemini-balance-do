@@ -1,6 +1,64 @@
 import { jsx } from 'hono/jsx';
 
-export const Render = () => {
+export const Render = ({ isAuthenticated, showWarning }: { isAuthenticated: boolean; showWarning: boolean }) => {
+	if (!isAuthenticated) {
+		return (
+			<html>
+				<head>
+					<meta charset="UTF-8" />
+					<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+					<title>登录</title>
+					<script src="https://cdn.tailwindcss.com"></script>
+				</head>
+				<body class="bg-gray-100 flex items-center justify-center h-screen">
+					<div class="w-full max-w-xs">
+						<form id="login-form" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+							<div class="mb-4">
+								<label class="block text-gray-700 text-sm font-bold mb-2" for="auth-key">
+									ACCESS_KEY
+								</label>
+								<input
+									class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+									id="auth-key"
+									type="password"
+									placeholder="******************"
+								/>
+							</div>
+							<div class="flex items-center justify-between">
+								<button
+									class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+									type="submit"
+								>
+									登录
+								</button>
+							</div>
+						</form>
+					</div>
+					<script
+						dangerouslySetInnerHTML={{
+							__html: `
+                                document.getElementById('login-form').addEventListener('submit', async function(e) {
+                                    e.preventDefault();
+                                    const key = document.getElementById('auth-key').value;
+                                    const response = await fetch(window.location.href, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ key }),
+                                    });
+                                    if (response.ok) {
+                                        window.location.reload();
+                                    } else {
+                                        alert('登录失败');
+                                    }
+                                });
+                            `,
+						}}
+					></script>
+				</body>
+			</html>
+		);
+	}
+
 	return (
 		<html>
 			<head>
@@ -10,6 +68,14 @@ export const Render = () => {
 				<script src="https://cdn.tailwindcss.com"></script>
 			</head>
 			<body class="bg-gray-100">
+				{showWarning && (
+					<div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-3 mb-4" role="alert">
+						<strong class="font-bold">安全警告：</strong>
+						<span class="block">
+							当前 HOME_ACCESS_KEY 或 AUTH_KEY 为默认值，请尽快修改环境变量并重新部署 Worker！
+						</span>
+					</div>
+				)}
 				<div class="flex h-screen">
 					<div class="w-64 bg-gray-800 text-white p-4">
 						<h1 class="text-2xl font-bold mb-8">管理面板</h1>
@@ -75,28 +141,6 @@ export const Render = () => {
 				<script
 					dangerouslySetInnerHTML={{
 						__html: `
-								// 修改登录验证逻辑 - 每次都要求输入HOME_ACCESS_KEY
-								const key = prompt('请输入管理面板访问密钥:');
-								if (!key) {
-									alert('需要访问密钥才能进入管理面板');
-									throw new Error('Authentication required');
-								}
-								fetch('/api/auth', {
-									method: 'POST',
-									headers: { 'Content-Type': 'application/json' },
-									body: JSON.stringify({ key })
-								}).then(response => {
-									if (response.ok) {
-										// 认证成功，不保存到localStorage
-									} else {
-										alert('密钥验证失败');
-										window.location.reload();
-									}
-								}).catch(() => {
-									alert('验证过程出错');
-									window.location.reload();
-								});
-
 								document.addEventListener('DOMContentLoaded', () => {
 										const addKeysForm = document.getElementById('add-keys-form');
 										const apiKeysTextarea = document.getElementById('api-keys');
