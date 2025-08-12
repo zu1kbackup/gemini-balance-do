@@ -26,6 +26,7 @@ app.post('/', async (c) => {
         return c.json({ success: true });
     }
     return c.json({ success: false }, 401);
+});
 
 // 静态资源放行
 app.get('/favicon.ico', async (c) => {
