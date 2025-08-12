@@ -141,23 +141,6 @@ export const Render = ({ isAuthenticated, showWarning }: { isAuthenticated: bool
 				<script
 					dangerouslySetInnerHTML={{
 						__html: `
-								// 修改登录验证逻辑 - 输入HOME_ACCESS_KEY
-								fetch('/api/auth', {
-									method: 'POST',
-									headers: { 'Content-Type': 'application/json' },
-									body: JSON.stringify({ key })
-								}).then(response => {
-									if (response.ok) {
-										// 认证成功，不保存到localStorage
-									} else {
-										alert('密钥验证失败');
-										window.location.reload();
-									}
-								}).catch(() => {
-									alert('验证过程出错');
-									window.location.reload();
-								});
-
 								document.addEventListener('DOMContentLoaded', () => {
 										const addKeysForm = document.getElementById('add-keys-form');
 										const apiKeysTextarea = document.getElementById('api-keys');

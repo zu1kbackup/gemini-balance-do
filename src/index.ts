@@ -33,15 +33,7 @@ app.get('/favicon.ico', async (c) => {
     return c.text('Not found', 404);
 });
 
-// 管理面板前端认证接口
-app.post('/api/auth', async (c) => {
-    const { key } = await c.req.json();
-    if (key === c.env.HOME_ACCESS_KEY) {
-        return c.json({ success: true });
-    } else {
-        return c.json({ error: 'Invalid key' }, 401);
-    }
-});
+
 
 // 其它请求转发到 Durable Object
 app.all('*', async (c) => {
