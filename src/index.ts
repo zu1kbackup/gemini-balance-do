@@ -53,9 +53,7 @@ app.all('*', async (c) => {
     });
 });
 
-export default {
-    fetch: app.fetch,
-} satisfies ExportedHandler<Env>;
+export const fetch = app.fetch;
 
 export { LoadBalancer };
 
