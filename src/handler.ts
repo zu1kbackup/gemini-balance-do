@@ -107,7 +107,14 @@ export class LoadBalancer extends DurableObject {
 				return new Response('Unauthorized', { status: 401, headers: fixCors({}).headers });
 			}
 		}
-		const targetUrl = `${BASE_URL}${pathname}${search}`;
+		
+		// Remove api key from query parameters if present
+		let targetUrl = `${BASE_URL}${pathname}${search}`;
+		if (search.includes('key=')) {
+			const urlObj = new URL(targetUrl);
+			urlObj.searchParams.delete('key');
+			targetUrl = urlObj.toString();
+		}
 
 		try {
 			const headers = new Headers();
