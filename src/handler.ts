@@ -101,40 +101,40 @@ export class LoadBalancer extends DurableObject {
 
 		// Direct Gemini proxy
 		const authKey = this.env.AUTH_KEY;
-		
-		// Remove api key from query parameters if present
+
 		let targetUrl = `${BASE_URL}${pathname}${search}`;
+		if (authKey) {
+		// Remove api key from query parameters if present
+		// 如果URL查询参数中包含key，则验证并移除它
 		if (search.includes('key=')) {
 			const urlObj = new URL(targetUrl);
 			const requestKey = urlObj.searchParams.get('key');
 			if (requestKey) {
 				// Check AUTH_KEY if set, before using the key from URL parameter
-				if (authKey && requestKey !== authKey) {
+				// 验证请求中的API密钥是否与环境变量中的AUTH_KEY匹配
+				if (requestKey !== authKey) {
 					return new Response('Unauthorized', { status: 401, headers: fixCors({}).headers });
 				}
-				// Use the key from URL parameter as requestKey
-				const headers = new Headers(request.headers);
-				headers.set('x-goog-api-key', requestKey);
 				// Remove key from URL to avoid duplication
+				// 移除URL中的key参数，避免重复
 				urlObj.searchParams.delete('key');
 				targetUrl = urlObj.toString();
-				
-				// Continue with the modified headers and URL by proceeding to load balancing logic
 				// instead of directly returning the forwarded request
-				return this.forwardRequestWithLoadBalancing(targetUrl, request, headers);
+				// 使用负载均衡方式转发请求
+				return this.forwardRequestWithLoadBalancing(targetUrl, request);
 			}
-		}
-		
 		// Check x-goog-api-key in headers if no key in URL
-		if (authKey) {
+		// 如果URL中没有key参数，则检查请求头中的x-goog-api-key
+		} else {
 			const requestKey = request.headers.get('x-goog-api-key');
+			// 验证请求头中的API密钥是否与环境变量中的AUTH_KEY匹配
 			if (requestKey !== authKey) {
 				return new Response('Unauthorized', { status: 401, headers: fixCors({}).headers });
 			}
+			// 使用负载均衡方式转发请求，保持原始请求头
+			return this.forwardRequestWithLoadBalancing(targetUrl, request);
+			}
 		}
-
-		// Default forwarding with load balancing
-		return this.forwardRequestWithLoadBalancing(targetUrl, request, new Headers(request.headers));
 	}
 
 	async forwardRequest(targetUrl: string, request: Request, headers: Headers): Promise<Response> {
@@ -162,13 +162,14 @@ export class LoadBalancer extends DurableObject {
 		});
 	}
 
-	// 提取重复的请求转发逻辑到单独的方法中
-	private async forwardRequestWithLoadBalancing(targetUrl: string, request: Request, headers: Headers): Promise<Response> {
+	// 对请求进行负载均衡，随机分发key
+	private async forwardRequestWithLoadBalancing(targetUrl: string, request: Request): Promise<Response> {
 		try {
 			const apiKey = await this.getRandomApiKey();
 			if (!apiKey) {
 				return new Response('No API keys configured in the load balancer.', { status: 500 });
 			}
+			let headers = new Headers();
 			headers.set('x-goog-api-key', apiKey);
 
 			// Forward content-type header
