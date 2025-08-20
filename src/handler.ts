@@ -718,8 +718,12 @@ export class LoadBalancer extends DurableObject {
 				});
 			}
 
-			const placeholders = keys.map(() => '?').join(',');
-			await this.ctx.storage.sql.exec(`DELETE FROM api_keys WHERE api_key IN (${placeholders})`, ...keys);
+			const batchSize = 500;
+			for (let i = 0; i < keys.length; i += batchSize) {
+				const batch = keys.slice(i, i + batchSize);
+				const placeholders = batch.map(() => '?').join(',');
+				await this.ctx.storage.sql.exec(`DELETE FROM api_keys WHERE api_key IN (${placeholders})`, ...batch);
+			}
 
 			return new Response(JSON.stringify({ message: 'API密钥删除成功。' }), {
 				status: 200,
@@ -753,9 +757,13 @@ export class LoadBalancer extends DurableObject {
 			const invalidKeys = checkResults.filter((result) => !result.valid).map((result) => result.key);
 			if (invalidKeys.length > 0) {
 				console.log('InvalidKeys: ', JSON.stringify(invalidKeys));
-				const placeholders = invalidKeys.map(() => '?').join(', ');
-				const statement = `DELETE FROM api_keys WHERE api_key IN (${placeholders})`;
-				this.ctx.storage.sql.exec(statement, ...invalidKeys);
+				const batchSize = 500;
+				for (let i = 0; i < invalidKeys.length; i += batchSize) {
+					const batch = invalidKeys.slice(i, i + batchSize);
+					const placeholders = batch.map(() => '?').join(',');
+					const statement = `DELETE FROM api_keys WHERE api_key IN (${placeholders})`;
+					await this.ctx.storage.sql.exec(statement, ...batch);
+				}
 				console.log(`移除了 ${invalidKeys.length} 个无效的API密钥。`);
 			}
 
