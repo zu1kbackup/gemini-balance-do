@@ -16,16 +16,6 @@ const fixCors = ({ headers, status, statusText }: { headers?: HeadersInit; statu
 	return { headers: newHeaders, status, statusText };
 };
 
-const handleOPTIONS = async () => {
-	return new Response(null, {
-		headers: {
-			'Access-Control-Allow-Origin': '*',
-			'Access-Control-Allow-Methods': '*',
-			'Access-Control-Allow-Headers': '*',
-		},
-	});
-};
-
 const BASE_URL = 'https://generativelanguage.googleapis.com';
 const API_VERSION = 'v1beta';
 const API_CLIENT = 'genai-js/0.21.0';
@@ -463,6 +453,12 @@ export class LoadBalancer extends DurableObject {
 					throw new HttpError(`Unknown message role: "${item.role}"`, 400);
 			}
 
+			if (system_instruction) {
+				if (!contents[0]?.parts.some((part: any) => part.text)) {
+					contents.unshift({ role: 'user', parts: { text: ' ' } });
+				}
+			}
+
 			contents.push({
 				role: item.role,
 				parts: await this.transformMsg(item),
@@ -485,15 +481,72 @@ export class LoadBalancer extends DurableObject {
 					parts.push({ text: item.text });
 					break;
 				case 'image_url':
-					// 简化的图片处理
-					parts.push({ text: '[图片内容]' });
+					parts.push(await this.parseImg(item.image_url.url));
+					break;
+				case 'input_audio':
+					parts.push({
+						inlineData: {
+							mimeType: 'audio/' + item.input_audio.format,
+							data: item.input_audio.data,
+						},
+					});
 					break;
 				default:
 					throw new HttpError(`Unknown "content" item type: "${item.type}"`, 400);
 			}
 		}
 
+		if (content.every((item) => item.type === 'image_url')) {
+			parts.push({ text: '' }); // to avoid "Unable to submit request because it must have a text parameter"
+		}
 		return parts;
+	}
+	private async parseImg(url: any) {
+		let mimeType, data;
+		if (url.startsWith('http://') || url.startsWith('https://')) {
+			try {
+				const response = await fetch(url);
+				if (!response.ok) {
+					throw new Error(`${response.status} ${response.statusText} (${url})`);
+				}
+				mimeType = response.headers.get('content-type');
+				data = Buffer.from(await response.arrayBuffer()).toString('base64');
+			} catch (err) {
+				throw new Error('Error fetching image: ' + (err as Error).message);
+			}
+		} else {
+			const match = url.match(/^data:(?<mimeType>.*?)(;base64)?,(?<data>.*)$/);
+			if (!match) {
+				throw new HttpError('Invalid image data: ' + url, 400);
+			}
+			({ mimeType, data } = match.groups);
+		}
+		return {
+			inlineData: {
+				mimeType,
+				data,
+			},
+		};
+	}
+
+	private adjustSchema(schema: any) {
+		const obj = schema[schema.type];
+		delete obj.strict;
+		return this.adjustProps(schema);
+	}
+
+	private adjustProps(schemaPart: any) {
+		if (typeof schemaPart !== 'object' || schemaPart === null) {
+			return;
+		}
+		if (Array.isArray(schemaPart)) {
+			schemaPart.forEach(this.adjustProps);
+		} else {
+			if (schemaPart.type === 'object' && schemaPart.properties && schemaPart.additionalProperties === false) {
+				delete schemaPart.additionalProperties;
+			}
+			Object.values(schemaPart).forEach(this.adjustProps);
+		}
 	}
 
 	private transformTools(req: any) {
@@ -501,6 +554,7 @@ export class LoadBalancer extends DurableObject {
 		if (req.tools) {
 			const funcs = req.tools.filter((tool: any) => tool.type === 'function' && tool.function?.name !== 'googleSearch');
 			if (funcs.length > 0) {
+				funcs.forEach(this.adjustSchema);
 				tools = [{ function_declarations: funcs.map((schema: any) => schema.function) }];
 			}
 		}
@@ -581,6 +635,7 @@ export class LoadBalancer extends DurableObject {
 		if (this.buffer) {
 			try {
 				controller.enqueue(JSON.parse(this.buffer));
+				this.shared.is_buffers_rest = true;
 			} catch (e) {
 				console.error('Error parsing remaining buffer:', e);
 			}
