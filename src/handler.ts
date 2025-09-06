@@ -68,7 +68,7 @@ export class LoadBalancer extends DurableObject {
 			(pathname === '/api/keys/check' && request.method === 'GET')
 		) {
 			if (!isAdminAuthenticated(request, this.env.HOME_ACCESS_KEY)) {
-				return new Response(JSON.stringify({ error: 'Unauthorized' }) , {
+				return new Response(JSON.stringify({ error: 'Unauthorized' }), {
 					status: 401,
 					headers: fixCors({ headers: { 'Content-Type': 'application/json' } }).headers,
 				});
@@ -104,37 +104,30 @@ export class LoadBalancer extends DurableObject {
 
 		let targetUrl = `${BASE_URL}${pathname}${search}`;
 		if (authKey) {
-		// Remove api key from query parameters if present
-		// 如果URL查询参数中包含key，则验证并移除它
-		if (search.includes('key=')) {
-			const urlObj = new URL(targetUrl);
-			const requestKey = urlObj.searchParams.get('key');
-			if (requestKey) {
-				// Check AUTH_KEY if set, before using the key from URL parameter
-				// 验证请求中的API密钥是否与环境变量中的AUTH_KEY匹配
-				if (requestKey !== authKey) {
-					return new Response('Unauthorized', { status: 401, headers: fixCors({}).headers });
+			let isAuthorized = false;
+			// Check key in query parameters
+			if (search.includes('key=')) {
+				const urlObj = new URL(targetUrl);
+				const requestKey = urlObj.searchParams.get('key');
+				if (requestKey && requestKey === authKey) {
+					urlObj.searchParams.delete('key');
+					targetUrl = urlObj.toString();
+					isAuthorized = true;
 				}
-				// Remove key from URL to avoid duplication
-				// 移除URL中的key参数，避免重复
-				urlObj.searchParams.delete('key');
-				targetUrl = urlObj.toString();
-				// instead of directly returning the forwarded request
-				// 使用负载均衡方式转发请求
-				return this.forwardRequestWithLoadBalancing(targetUrl, request);
+			} else {
+				// Check x-goog-api-key in headers
+				const requestKey = request.headers.get('x-goog-api-key');
+				if (requestKey && requestKey === authKey) {
+					isAuthorized = true;
+				}
 			}
-		// Check x-goog-api-key in headers if no key in URL
-		// 如果URL中没有key参数，则检查请求头中的x-goog-api-key
-		} else {
-			const requestKey = request.headers.get('x-goog-api-key');
-			// 验证请求头中的API密钥是否与环境变量中的AUTH_KEY匹配
-			if (requestKey !== authKey) {
+
+			if (!isAuthorized) {
 				return new Response('Unauthorized', { status: 401, headers: fixCors({}).headers });
 			}
-			// 使用负载均衡方式转发请求，保持原始请求头
-			return this.forwardRequestWithLoadBalancing(targetUrl, request);
-			}
 		}
+		// If authKey is not set, or if it was authorized, proceed to forward with load balancing.
+		return this.forwardRequestWithLoadBalancing(targetUrl, request);
 	}
 
 	async forwardRequest(targetUrl: string, request: Request, headers: Headers): Promise<Response> {
