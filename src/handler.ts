@@ -84,7 +84,7 @@ export class LoadBalancer extends DurableObject {
 			pathname.endsWith('/chat/completions') ||
 			pathname.endsWith('/completions') ||
 			pathname.endsWith('/embeddings') ||
-			pathname.endsWith('/models')
+			pathname.endsWith('/v1/models')
 		) {
 			return this.handleOpenAI(request);
 		}
@@ -100,8 +100,6 @@ export class LoadBalancer extends DurableObject {
 				const urlObj = new URL(targetUrl);
 				const requestKey = urlObj.searchParams.get('key');
 				if (requestKey && requestKey === authKey) {
-					urlObj.searchParams.delete('key');
-					targetUrl = urlObj.toString();
 					isAuthorized = true;
 				}
 			} else {
@@ -126,7 +124,7 @@ export class LoadBalancer extends DurableObject {
 		const response = await fetch(targetUrl, {
 			method: request.method,
 			headers: headers,
-			body: request.body,
+			body: request.method === 'GET' || request.method === 'HEAD' ? null : request.body,
 		});
 
 		console.log('Call Gemini Success');
@@ -153,14 +151,16 @@ export class LoadBalancer extends DurableObject {
 				return new Response('No API keys configured in the load balancer.', { status: 500 });
 			}
 			let headers = new Headers();
-			headers.set('x-goog-api-key', apiKey);
 
 			// Forward content-type header
 			if (request.headers.has('content-type')) {
 				headers.set('content-type', request.headers.get('content-type')!);
 			}
 
-			return this.forwardRequest(targetUrl, request, headers);
+			const url = new URL(targetUrl);
+			url.searchParams.set('key', apiKey);
+			headers.set('x-goog-api-key', apiKey);
+			return this.forwardRequest(url.toString(), request, headers);
 		} catch (error) {
 			console.error('Failed to fetch:', error);
 			return new Response('Internal Server Error\n' + error, {
